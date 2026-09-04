@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: py2dadroid-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+jobs:
+  validate-workflows:
+    name: Validate workflow contracts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run actionlint
+        uses: reviewdog/action-actionlint@v1
+        with:
+          fail_level: error
+
+  build:
+    name: Build (standard / arm64-v8a)
+    needs: validate-workflows
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - standard
+        abi:
+          - arm64-v8a
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Resolve CPython runtime
+        run: |
+          ./scripts/fetch_embeddable_python.sh \
+            --variant "${{ matrix.variant }}" \
+            --abi "${{ matrix.abi }}" \
+            --out build/python-runtime
+
+      - name: Assemble
+        run: |
+          ./gradlew assembleDebug \
+            -PpyVariant="${{ matrix.variant }}" \
+            -PabiFilter="${{ matrix.abi }}" \
+            --stacktrace
+
+      - name: JVM tests
+        run: |
+          ./gradlew test \
+            -PpyVariant="${{ matrix.variant }}" \
+            -PabiFilter="${{ matrix.abi }}" \
+            --stacktrace
