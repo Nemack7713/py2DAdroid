@@ -4,69 +4,43 @@ py2DAdroid is a modern Android-native host for direct CPython embedding.
 
 Chaquopy is intentionally not part of the project.
 
-## v0.1 architecture
+## Direct CPython proof
+
+The first authoritative runtime is the official Python 3.14.7 Android
+embeddable package from python.org for arm64-v8a. The resolver pins its
+published SHA-256 before extraction.
 
 ```text
-Jetpack Compose
-      ↓
-Kotlin runtime contract
-      ↓
-service-owned runtime lifecycle
-      ↓
-JNI control bridge
-      ↓
-verified direct CPython Android runtime
+Compose
+  ↓
+service-owned Kotlin runtime
+  ↓
+JNI
+  ↓
+PyConfig / Py_InitializeFromConfig
+  ↓
+official CPython 3.14
 ```
 
-The current native probe is intentionally fail-visible. It reports that a
-verified CPython runtime has not yet been wired rather than pretending that
-Python execution is available.
+The package contributes `libpython3.14.so` and dependent
+`lib*_python.so` libraries to JNI libs, and the Python 3.14 standard library
+to APK assets. On-device, the standard library is extracted to app-private
+storage before initialization.
 
-## Build baseline
+The first execution target is deliberately narrow:
 
-- Android Gradle Plugin 9.4
-- built-in Kotlin through AGP 9
-- Compose compiler plugin
-- Java 17
-- compile/target SDK 37
-- minSdk 26
-- arm64-v8a authoritative ABI
-- CMake 3.22.1
-- C++17
-- standard CPython 3.14 intended first runtime
+```text
+eval("2 + 2") → "4"
+```
 
-## Build properties
+Build properties:
 
 ```text
 -PpyVersion=3.14
 -PpyVariant=standard
 -PabiFilter=arm64-v8a
--PpyRuntimeRoot=/absolute/path/to/verified/runtime
+-PpyRuntimeRoot=/absolute/path/to/verified/runtime/prefix
 ```
 
-## Experimental combinations
-
-pybind11 and free-threaded CPython are independently opt-in. Their combination
-is rejected by CMake until that specific pairing has an explicit validation
-record.
-
-## Next runtime proof
-
-The next slice is deliberately narrow:
-
-```text
-Kotlin
-  ↓ JNI
-C++ host
-  ↓
-standard CPython 3.14
-  ↓
-eval("2 + 2")
-  ↓
-"4"
-  ↓ JNI
-Compose
-```
-
-No package manager, WorkManager layer, free-threaded runtime, pybind11 bridge,
-or release automation is required for that proof.
+pybind11, free-threaded CPython, package management, WorkManager and automatic
+GitHub Actions triggers remain outside this first proof.
