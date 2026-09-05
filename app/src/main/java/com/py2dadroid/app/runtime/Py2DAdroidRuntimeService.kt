@@ -17,7 +17,8 @@ class Py2DAdroidRuntimeService : Service() {
 
     private val binder = RuntimeBinder()
 
-    val runtime: PythonRuntime = DefaultPythonRuntime()
+    lateinit var runtime: PythonRuntime
+        private set
 
     inner class RuntimeBinder : Binder() {
         fun service(): Py2DAdroidRuntimeService =
@@ -28,14 +29,17 @@ class Py2DAdroidRuntimeService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        runtime = DefaultPythonRuntime(applicationContext)
         serviceScope.launch {
             runtime.start()
         }
     }
 
     override fun onDestroy() {
-        runBlocking {
-            runtime.stop()
+        if (::runtime.isInitialized) {
+            runBlocking {
+                runtime.stop()
+            }
         }
         serviceScope.cancel()
         super.onDestroy()
